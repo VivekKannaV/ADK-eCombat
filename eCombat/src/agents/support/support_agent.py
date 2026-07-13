@@ -3,7 +3,7 @@ from pathlib import Path
 from google.adk.agents.llm_agent import Agent
 from google.adk.models.lite_llm import LiteLlm
 from eCombat.src.config.settings import SUPPORT_MODEL
-from eCombat.src.agents.logging_agent import LoggingAgent
+from eCombat.src.agents.logger.logging_agent import LoggingAgent
 
 _INSTRUCTION = (Path(__file__).parent / "instructions" / "formal_assistant.txt").read_text().strip()
 

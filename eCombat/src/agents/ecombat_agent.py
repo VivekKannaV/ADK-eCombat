@@ -3,9 +3,9 @@ from pathlib import Path
 from google.adk.agents.llm_agent import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-from eCombat.src.agents.sales_agent import sales_agent
-from eCombat.src.agents.support_agent import support_agent
-from eCombat.src.agents.logging_agent import LoggingAgent
+from eCombat.src.agents.sales.sales_agent import sales_agent
+from eCombat.src.agents.support.support_agent import support_agent
+from eCombat.src.agents.logger.logging_agent import LoggingAgent
 from eCombat.src.config.settings import SUPPORT_MODEL
 
 _INSTRUCTION = (
