@@ -1,3 +1,5 @@
-from .src.agents.support_agent import root_agent
+from .src.agents.ecombat_agent import ecombat_agent
 
-__all__ = ["root_agent"]
+root_agent = ecombat_agent
+
+__all__ = ["ecombat_agent", "root_agent"]

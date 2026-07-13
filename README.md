@@ -94,7 +94,7 @@ ADK comes with a built-in FastAPI web server that provides a clean, modern web i
 ## 📂 Project Structure
 
 - **`eCombat/`**: The core application module.
-  - [eCombat/src/agents/](file:///Users/vva049/Projects/MyWorks/ADK-eCombat/eCombat/src/agents/): Contains agent definitions (e.g., `support_agent.py`, `product_agent.py`, `sales_agent.py`).
+  - [eCombat/src/agents/](file:///Users/vva049/Projects/MyWorks/ADK-eCombat/eCombat/src/agents/): Contains agent definitions (for example, `support_agent.py`, `sales_agent.py`, `ecombat_agent.py`).
   - [eCombat/src/tools/db_tools.py](file:///Users/vva049/Projects/MyWorks/ADK-eCombat/eCombat/src/tools/db_tools.py): Python functions exposed as tools to the agent (e.g., searching products, placing orders, logging sessions).
   - [eCombat/src/config/settings.py](file:///Users/vva049/Projects/MyWorks/ADK-eCombat/eCombat/src/config/settings.py): LLM model configurations.
 - **`scripts/init_db.sql`**: SQL commands to create database tables and insert initial mock data.
