@@ -1,4 +1,5 @@
 -- Drop tables if they exist to start fresh
+DROP TABLE IF EXISTS conversation_turns CASCADE;
 DROP TABLE IF EXISTS session_history CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
@@ -25,14 +26,19 @@ CREATE TABLE orders (
     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Session History Table
-CREATE TABLE session_history (
-    id SERIAL PRIMARY KEY,
-    session_id VARCHAR(100) NOT NULL,
-    user_query TEXT NOT NULL,
-    agent_response TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Create Session History Table (conversation turns — one row per message)
+CREATE TABLE conversation_turns (
+    id           SERIAL PRIMARY KEY,
+    session_id   VARCHAR(255)             NOT NULL,
+    user_id      VARCHAR(255),
+    role         VARCHAR(50)              NOT NULL CHECK (role IN ('user', 'assistant', 'tool', 'system')),
+    content      TEXT                     NOT NULL,
+    tool_calls   JSONB,
+    timestamp    TIMESTAMPTZ              NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_conversation_turns_session
+    ON conversation_turns (session_id, timestamp ASC);
 
 -- Insert Electronics products sample data (15 entries)
 INSERT INTO products (name, description, price, stock_quantity, category) VALUES

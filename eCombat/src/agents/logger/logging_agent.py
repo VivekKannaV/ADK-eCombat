@@ -42,7 +42,9 @@ import inspect
 import logging
 import time
 import uuid
-from typing import Any
+from typing import Any, Optional
+
+from eCombat.src.tools.session_tools import log_session_interaction
 
 # Module-level logger used only for warnings about misconfigured wrappers.
 _module_log = logging.getLogger(__name__)
@@ -79,10 +81,12 @@ class LoggingAgent:
         *,
         max_output_chars: int = 500,
         log_inputs: bool = True,
+        persist_interactions: bool = True,
     ) -> None:
         self._agent = agent
         self._max_output_chars = max_output_chars
         self._log_inputs = log_inputs
+        self._persist_interactions = persist_interactions
 
         agent_name = getattr(agent, "name", agent.__class__.__name__)
         # Use the standard logger hierarchy — no handlers attached here.
@@ -111,6 +115,76 @@ class LoggingAgent:
                 return attr
         return None
 
+    @staticmethod
+    def _extract_session_info(
+        args: tuple, kwargs: dict
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Best-effort extraction of (session_id, user_query) from call arguments.
+
+        Handles two common ADK invocation patterns:
+          1. agent(user_query: str, *, session_id: str, ...)
+          2. agent(invocation_context)  where context has .session.id and a
+             message/query string nested within it.
+        """
+        # --- session_id ---
+        session_id: Optional[str] = kwargs.get("session_id")
+        if session_id is None:
+            ctx = args[0] if args else None
+            # InvocationContext has .session.id
+            try:
+                session_id = ctx.session.id  # type: ignore[union-attr]
+            except AttributeError:
+                pass
+        if session_id is None:
+            for arg in args:
+                if isinstance(arg, str) and arg.startswith("session:"):
+                    session_id = arg
+                    break
+
+        # --- user_query ---
+        user_query: Optional[str] = kwargs.get("user_query") or kwargs.get("query") or kwargs.get("message")
+        if user_query is None and args:
+            if isinstance(args[0], str):
+                user_query = args[0]
+            else:
+                # Try InvocationContext-style: context.user_content or .message
+                ctx = args[0]
+                for attr in ("user_content", "message", "query", "text"):
+                    val = getattr(ctx, attr, None)
+                    if isinstance(val, str):
+                        user_query = val
+                        break
+
+        return session_id, user_query
+
+    def _persist(
+        self,
+        session_id: Optional[str],
+        user_query: Optional[str],
+        result: Any,
+        agent_name: str,
+    ) -> None:
+        """Fire-and-forget call to log_session_interaction; never raises."""
+        if not self._persist_interactions or not session_id or not user_query:
+            return
+        agent_response = _truncate(result, self._max_output_chars)
+        try:
+            log_result = log_session_interaction(
+                session_id=session_id,
+                user_query=user_query,
+                agent_response=agent_response,
+            )
+            if log_result.get("status") != "Success":
+                self.logger.warning(
+                    "agent=%s | SESSION_LOG failed: %s",
+                    agent_name, log_result.get("message"),
+                )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                "agent=%s | SESSION_LOG exception: %s: %s",
+                agent_name, type(exc).__name__, exc,
+            )
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         agent_name = getattr(self._agent, "name", self._agent.__class__.__name__)
         call_id = uuid.uuid4().hex[:8]   # short 8-char ID — easy to grep
@@ -120,6 +194,8 @@ class LoggingAgent:
             msg = f"No callable entrypoint found on agent '{agent_name}'"
             _module_log.error(msg)
             raise RuntimeError(msg)
+
+        session_id, user_query = self._extract_session_info(args, kwargs)
 
         # --- log invocation start ---
         self.logger.info(
@@ -150,6 +226,7 @@ class LoggingAgent:
                         call_id, agent_name,
                         _truncate(result, self._max_output_chars),
                     )
+                    self._persist(session_id, user_query, result, agent_name)
                     return result
                 except Exception as exc:
                     elapsed = time.perf_counter() - t0
@@ -177,6 +254,7 @@ class LoggingAgent:
                 call_id, agent_name,
                 _truncate(result, self._max_output_chars),
             )
+            self._persist(session_id, user_query, result, agent_name)
             return result
         except Exception as exc:
             elapsed = time.perf_counter() - t0
